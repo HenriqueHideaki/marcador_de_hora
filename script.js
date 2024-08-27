@@ -124,33 +124,53 @@ function updateTimer(element, accumulatedSeconds) {
 
 function finalizeTask(event, taskName, element) {
     event.stopPropagation();
-    clearInterval(timerInterval); // Interrompe a contagem do cronômetro
+    clearInterval(timerInterval);
 
     const taskCard = element.closest('.task-card');
-    const finalTime = taskCard.querySelector('.timer').innerText; // Pega o tempo final do cronômetro
-    const elapsedSeconds = parseInt(taskCard.getAttribute('data-accumulated')) + Math.floor((new Date().getTime() - parseInt(taskCard.getAttribute('data-start-time'))) / 1000);
+    const finalTime = taskCard.querySelector('.timer').innerText;
+    const [hours, minutes, seconds] = finalTime.split(':').map(Number);
+    const totalTaskSeconds = hours * 3600 + minutes * 60 + seconds;
 
-    // Incrementa o tempo total trabalhado
-    totalWorkedSeconds += elapsedSeconds;
+    // Atualiza o tempo total trabalhado
+    totalWorkedSeconds += totalTaskSeconds;
     updateTotalHoursWorked();
 
     taskCard.querySelector('.status').innerText = "Finished";
-    taskCard.querySelector('.end-time').innerText = new Date().toLocaleTimeString(); // Tempo final agora
+    taskCard.querySelector('.end-time').innerText = new Date().toLocaleTimeString();
     taskCard.classList.remove('in-progress');
     taskCard.classList.add('finished');
 
-    taskCard.querySelector('.duration').innerText = finalTime; // Define a duração como o tempo final do cronômetro
+    taskCard.querySelector('.duration').innerText = finalTime;
 
     updateTaskInLocalStorage(taskName, {
         status: "Finished",
         endTime: taskCard.querySelector('.end-time').innerText,
         duration: finalTime,
-        accumulated: 0, // Resetar tempo acumulado após finalizar
+        accumulated: 0,
     });
 
     currentTask = null;
 }
 
+function updateTotalHoursWorked() {
+    const totalHours = String(Math.floor(totalWorkedSeconds / 3600)).padStart(2, '0');
+    const totalMinutes = String(Math.floor((totalWorkedSeconds % 3600) / 60)).padStart(2, '0');
+    const totalSeconds = String(totalWorkedSeconds % 60).padStart(2, '0');
+    document.getElementById('total-hours').innerText = `${totalHours}:${totalMinutes}:${totalSeconds}`;
+}
+
+function loadTasks() {
+    const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    totalWorkedSeconds = 0; // Reseta o total de segundos trabalhados
+    tasks.forEach(task => {
+        createTaskCard(task.name, task);
+        if (task.status === "Finished" && task.duration) {
+            const [hours, minutes, seconds] = task.duration.split(':').map(Number);
+            totalWorkedSeconds += hours * 3600 + minutes * 60 + seconds;
+        }
+    });
+    updateTotalHoursWorked(); // Atualiza o display do total de horas trabalhadas
+}
 function removeTask(event, taskName, element) {
     event.stopPropagation();
     const taskCard = element.closest('.task-card');
@@ -202,36 +222,19 @@ function saveAllTasksToLocalStorage() {
         const startTime = card.querySelector('.start-time').innerText;
         const endTime = card.querySelector('.end-time').innerText;
         const duration = card.querySelector('.duration').innerText;
-        const accumulated = card.getAttribute('data-accumulated') || 0;
+        const timer = card.querySelector('.timer').innerText;
+        const accumulated = card.getAttribute('data-accumulated') || '0';
 
         tasks.push({
             name: taskName,
-            status: status,
-            startTime: startTime,
-            endTime: endTime,
-            duration: duration,
-            accumulated: accumulated
+            status,
+            startTime,
+            endTime,
+            duration,
+            timer,
+            accumulated
         });
     });
 
     localStorage.setItem('tasks', JSON.stringify(tasks));
-}
-
-function saveTasks() {
-    let tasksData = '';
-    const taskCards = document.querySelectorAll('.task-card');
-    taskCards.forEach(card => {
-        const taskName = card.querySelector('h2').innerText;
-        const status = card.querySelector('.status').innerText;
-        const startTime = card.querySelector('.start-time').innerText;
-        const endTime = card.querySelector('.end-time').innerText;
-        const duration = card.querySelector('.duration').innerText;
-        tasksData += `Task: ${taskName}\nStatus: ${status}\nStart Time: ${startTime}\nEnd Time: ${endTime}\nDuration: ${duration}\n\n`;
-    });
-
-    const blob = new Blob([tasksData], { type: 'text/plain' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'tasks_report.txt';
-    link.click();
 }
