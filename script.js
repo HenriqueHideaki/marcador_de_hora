@@ -2,6 +2,9 @@ let currentTask = null;
 let timerInterval = null;
 let totalWorkedSeconds = 0;
 
+document.addEventListener("DOMContentLoaded", loadTasks);  // Carrega as tarefas ao carregar a página
+document.getElementById("save-to-localstorage-btn").addEventListener("click", saveAllTasksToLocalStorage);  // Adiciona evento ao botão "Salvar no LocalStorage"
+
 function addTask() {
     const taskName = document.getElementById('task-input').value;
     if (taskName.trim() === '') {
@@ -31,6 +34,7 @@ function createTaskCard(taskName, taskData = {}) {
         <p>Timer: <span class="timer">${taskData.timer || '00:00:00'}</span></p>
         <button class="pause-btn" onclick="pauseTask(event, '${taskName}', this)">Pausar</button>
         <button class="finalize-btn" onclick="finalizeTask(event, '${taskName}', this)">Finalizar</button>
+        <button class="remove-btn" onclick="removeTask(event, '${taskName}', this)">Remover</button>
     `;
 
     taskCard.setAttribute('data-accumulated', taskData.accumulated || '0'); // Tempo acumulado
@@ -147,11 +151,25 @@ function finalizeTask(event, taskName, element) {
     currentTask = null;
 }
 
+function removeTask(event, taskName, element) {
+    event.stopPropagation();
+    const taskCard = element.closest('.task-card');
+    taskCard.remove(); // Remove o card da interface
+
+    removeTaskFromLocalStorage(taskName); // Remove a tarefa do localStorage
+}
+
+function removeTaskFromLocalStorage(taskName) {
+    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    tasks = tasks.filter(task => task.name !== taskName);
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
 function updateTotalHoursWorked() {
     const totalHours = String(Math.floor(totalWorkedSeconds / 3600)).padStart(2, '0');
     const totalMinutes = String(Math.floor((totalWorkedSeconds % 3600) / 60)).padStart(2, '0');
     const totalSeconds = String(totalWorkedSeconds % 60).padStart(2, '0');
-    document.getElementById('total-hours').innerText = `Total de Horas Trabalhadas: ${totalHours}:${totalMinutes}:${totalSeconds}`;
+    document.getElementById('total-hours').innerText = `${totalHours}:${totalMinutes}:${totalSeconds}`;
 }
 
 function saveTaskToLocalStorage(taskName) {
@@ -172,6 +190,31 @@ function updateTaskInLocalStorage(taskName, updates) {
 function loadTasks() {
     const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
     tasks.forEach(task => createTaskCard(task.name, task));
+}
+
+function saveAllTasksToLocalStorage() {
+    const taskCards = document.querySelectorAll('.task-card');
+    const tasks = [];
+
+    taskCards.forEach(card => {
+        const taskName = card.querySelector('h2').innerText;
+        const status = card.querySelector('.status').innerText;
+        const startTime = card.querySelector('.start-time').innerText;
+        const endTime = card.querySelector('.end-time').innerText;
+        const duration = card.querySelector('.duration').innerText;
+        const accumulated = card.getAttribute('data-accumulated') || 0;
+
+        tasks.push({
+            name: taskName,
+            status: status,
+            startTime: startTime,
+            endTime: endTime,
+            duration: duration,
+            accumulated: accumulated
+        });
+    });
+
+    localStorage.setItem('tasks', JSON.stringify(tasks));
 }
 
 function saveTasks() {
