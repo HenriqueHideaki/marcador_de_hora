@@ -1,0 +1,110 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+}
+
+#task-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.task-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    width: 200px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.3s, background-color 0.3s;
+}
+
+.task-card.in-progress {
+    background-color: #ffe066; /* Yellow for in-progress */
+}
+
+.task-card.finished {
+    background-color: #a8e6cf; /* Green for finished */
+}
+
+.task-card:hover {
+    transform: scale(1.05);
+}
+
+#add-task-container {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+}
+
+#task-input {
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    margin-right: 10px;
+}
+
+#add-task-container button {
+    padding: 10px 20px;
+    font-size: 18px;
+    border: none;
+    background-color: #28a745;
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#add-task-container button:hover {
+    background-color: #218838;
+}
+
+#total-hours-container {
+    margin-top: 20px;
+}
+
+.status {
+    font-weight: bold;
+}
+
+.start-time, .end-time, .duration, .timer {
+    font-weight: normal;
+    color: #555;
+}
+
+.pause-btn, .finalize-btn {
+    margin-top: 10px;
+    padding: 5px 10px;
+    font-size: 14px;
+    border: none;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.pause-btn {
+    background-color: #ffc107;
+}
+
+.pause-btn:hover {
+    background-color: #e0a800;
+}
+
+.finalize-btn {
+    background-color: #dc3545;
+}
+
+.finalize-btn:hover {
+    background-color: #c82333;
+}

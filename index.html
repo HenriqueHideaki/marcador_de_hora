@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="task-container">
+        <!-- Existing task cards go here -->
+    </div>
+
+    <div id="add-task-container">
+        <input type="text" id="task-input" placeholder="Enter task name">
+        <button onclick="addTask()">+</button>
+        <button onclick="saveTasks()">Salvar</button>
+    </div>
+
+    <div id="total-hours-container">
+        <h3>Total de Horas Trabalhadas: <span id="total-hours">00:00:00</span></h3>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
