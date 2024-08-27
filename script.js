@@ -1,9 +1,6 @@
 let currentTask = null;
-let startTime = null;
 let timerInterval = null;
-let totalSecondsWorked = 0;
-let elapsedSeconds = 0;  // Armazena o tempo decorrido quando pausado
-let accumulatedSeconds = 0; // Armazena o tempo acumulado quando a tarefa é finalizada e depois retomada
+let totalWorkedSeconds = 0;
 
 function addTask() {
     const taskName = document.getElementById('task-input').value;
@@ -12,51 +9,70 @@ function addTask() {
         return;
     }
 
+    createTaskCard(taskName);
+    saveTaskToLocalStorage(taskName);
+
+    document.getElementById('task-input').value = '';
+}
+
+function createTaskCard(taskName, taskData = {}) {
     const taskContainer = document.getElementById('task-container');
 
     const taskCard = document.createElement('div');
     taskCard.className = 'task-card';
-    taskCard.setAttribute('onclick', `startTask('${taskName}', this)`);
+    taskCard.setAttribute('data-task-name', taskName);
 
     taskCard.innerHTML = `
         <h2>${taskName}</h2>
-        <p>Status: <span class="status">Not Started</span></p>
-        <p>Start Time: <span class="start-time"></span></p>
-        <p>End Time: <span class="end-time"></span></p>
-        <p>Duration: <span class="duration">00:00:00</span></p>
-        <p>Timer: <span class="timer">00:00:00</span></p>
+        <p>Status: <span class="status">${taskData.status || 'Not Started'}</span></p>
+        <p>Start Time: <span class="start-time">${taskData.startTime || ''}</span></p>
+        <p>End Time: <span class="end-time">${taskData.endTime || ''}</span></p>
+        <p>Duration: <span class="duration">${taskData.duration || '00:00:00'}</span></p>
+        <p>Timer: <span class="timer">${taskData.timer || '00:00:00'}</span></p>
         <button class="pause-btn" onclick="pauseTask(event, '${taskName}', this)">Pausar</button>
         <button class="finalize-btn" onclick="finalizeTask(event, '${taskName}', this)">Finalizar</button>
     `;
 
+    taskCard.setAttribute('data-accumulated', taskData.accumulated || '0'); // Tempo acumulado
+
+    if (taskData.status === "In Progress") {
+        taskCard.classList.add('in-progress');
+    } else if (taskData.status === "Finished") {
+        taskCard.classList.add('finished');
+    }
+
+    taskCard.addEventListener('click', () => startTask(taskName, taskCard));
+
     taskContainer.appendChild(taskCard);
-    document.getElementById('task-input').value = '';
 }
 
 function startTask(taskName, element) {
-    // Verifica se a tarefa já está em progresso
     if (currentTask === taskName) {
-        return; // Se estiver, não faz nada
+        return; // Não faz nada se a tarefa já está em progresso
     }
 
     const now = new Date();
 
-    // Pausar a tarefa atual se existir
+    // Pausa a tarefa atual se existir outra em progresso
     if (currentTask && currentTask !== taskName) {
-        pauseCurrentTask(); // Pausar a tarefa atual automaticamente
+        pauseCurrentTask();
     }
 
-    // Iniciar ou retomar a nova tarefa
+    // Inicia ou retoma a nova tarefa
     currentTask = taskName;
-    startTime = now;
-    accumulatedSeconds = parseInt(element.getAttribute('data-accumulated')) || 0; // Recupera o tempo acumulado, se existir
-    elapsedSeconds = parseInt(element.getAttribute('data-elapsed')) || 0; // Recupera o tempo decorrido, se existir
+    const accumulatedSeconds = parseInt(element.getAttribute('data-accumulated')) || 0; // Recupera o tempo acumulado
+    element.setAttribute("data-start-time", now.getTime()); // Marca o início da nova sessão
 
-    element.setAttribute("data-task", taskName);
     element.querySelector('.status').innerText = "In Progress";
-    element.classList.remove('finished'); // Remove a classe finished se a tarefa foi finalizada antes
+    element.querySelector('.start-time').innerText = element.querySelector('.start-time').innerText || now.toLocaleTimeString();
     element.classList.add('in-progress');
-    timerInterval = setInterval(() => updateTimer(element), 1000);
+
+    timerInterval = setInterval(() => updateTimer(element, accumulatedSeconds), 1000);
+
+    updateTaskInLocalStorage(taskName, {
+        status: "In Progress",
+        startTime: element.querySelector('.start-time').innerText,
+    });
 }
 
 function pauseTask(event, taskName, element) {
@@ -69,17 +85,33 @@ function pauseTask(event, taskName, element) {
 function pauseCurrentTask() {
     if (currentTask) {
         clearInterval(timerInterval);
-        const currentTaskCard = document.querySelector(`[data-task="${currentTask}"]`);
+        const currentTaskCard = document.querySelector(`[data-task-name="${currentTask}"]`);
+        const startTime = parseInt(currentTaskCard.getAttribute('data-start-time'));
+        const now = new Date().getTime();
+        const elapsedTime = Math.floor((now - startTime) / 1000);
+        const accumulatedSeconds = parseInt(currentTaskCard.getAttribute('data-accumulated')) || 0;
+        const newAccumulatedTime = accumulatedSeconds + elapsedTime;
+
         currentTaskCard.querySelector('.status').innerText = "Paused";
         currentTaskCard.classList.remove('in-progress');
-        currentTaskCard.setAttribute('data-elapsed', elapsedSeconds); // Salva o tempo decorrido
+        currentTaskCard.setAttribute('data-accumulated', newAccumulatedTime); // Salva o tempo acumulado
+
+        updateTaskInLocalStorage(currentTask, {
+            status: "Paused",
+            timer: currentTaskCard.querySelector('.timer').innerText,
+            accumulated: newAccumulatedTime,
+        });
+
         currentTask = null;
     }
 }
 
-function updateTimer(element) {
-    elapsedSeconds++;
-    const totalElapsedSeconds = accumulatedSeconds + elapsedSeconds;
+function updateTimer(element, accumulatedSeconds) {
+    const startTime = parseInt(element.getAttribute('data-start-time'));
+    const now = new Date().getTime();
+    const elapsedTime = Math.floor((now - startTime) / 1000);
+    const totalElapsedSeconds = accumulatedSeconds + elapsedTime;
+
     const hours = String(Math.floor(totalElapsedSeconds / 3600)).padStart(2, '0');
     const minutes = String(Math.floor((totalElapsedSeconds % 3600) / 60)).padStart(2, '0');
     const seconds = String(totalElapsedSeconds % 60).padStart(2, '0');
@@ -90,37 +122,56 @@ function finalizeTask(event, taskName, element) {
     event.stopPropagation();
     clearInterval(timerInterval); // Interrompe a contagem do cronômetro
 
-    const now = new Date();
     const taskCard = element.closest('.task-card');
+    const finalTime = taskCard.querySelector('.timer').innerText; // Pega o tempo final do cronômetro
+    const elapsedSeconds = parseInt(taskCard.getAttribute('data-accumulated')) + Math.floor((new Date().getTime() - parseInt(taskCard.getAttribute('data-start-time'))) / 1000);
+
+    // Incrementa o tempo total trabalhado
+    totalWorkedSeconds += elapsedSeconds;
+    updateTotalHoursWorked();
+
     taskCard.querySelector('.status').innerText = "Finished";
-    taskCard.querySelector('.end-time').innerText = now.toLocaleTimeString();
+    taskCard.querySelector('.end-time').innerText = new Date().toLocaleTimeString(); // Tempo final agora
     taskCard.classList.remove('in-progress');
     taskCard.classList.add('finished');
 
-    // Calcular e exibir a duração total
-    const durationInSeconds = accumulatedSeconds + elapsedSeconds;
-    const hours = String(Math.floor(durationInSeconds / 3600)).padStart(2, '0');
-    const minutes = String(Math.floor((durationInSeconds % 3600) / 60)).padStart(2, '0');
-    const seconds = String(durationInSeconds % 60).padStart(2, '0');
-    taskCard.querySelector('.duration').innerText = `${hours}:${minutes}:${seconds}`;
+    taskCard.querySelector('.duration').innerText = finalTime; // Define a duração como o tempo final do cronômetro
 
-    // Atualizar o tempo total trabalhado
-    totalSecondsWorked += elapsedSeconds;
-    updateTotalHours();
-
-    // Acumula o tempo decorrido ao tempo acumulado
-    accumulatedSeconds += elapsedSeconds;
-    element.setAttribute('data-accumulated', accumulatedSeconds); // Salva o tempo acumulado
+    updateTaskInLocalStorage(taskName, {
+        status: "Finished",
+        endTime: taskCard.querySelector('.end-time').innerText,
+        duration: finalTime,
+        accumulated: 0, // Resetar tempo acumulado após finalizar
+    });
 
     currentTask = null;
-    elapsedSeconds = 0;  // Redefinir o tempo decorrido para a próxima tarefa
 }
 
-function updateTotalHours() {
-    const totalHours = String(Math.floor(totalSecondsWorked / 3600)).padStart(2, '0');
-    const totalMinutes = String(Math.floor((totalSecondsWorked % 3600) / 60)).padStart(2, '0');
-    const totalSeconds = String(totalSecondsWorked % 60).padStart(2, '0');
-    document.getElementById('total-hours').innerText = `${totalHours}:${totalMinutes}:${totalSeconds}`;
+function updateTotalHoursWorked() {
+    const totalHours = String(Math.floor(totalWorkedSeconds / 3600)).padStart(2, '0');
+    const totalMinutes = String(Math.floor((totalWorkedSeconds % 3600) / 60)).padStart(2, '0');
+    const totalSeconds = String(totalWorkedSeconds % 60).padStart(2, '0');
+    document.getElementById('total-hours').innerText = `Total de Horas Trabalhadas: ${totalHours}:${totalMinutes}:${totalSeconds}`;
+}
+
+function saveTaskToLocalStorage(taskName) {
+    const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    tasks.push({ name: taskName });
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
+function updateTaskInLocalStorage(taskName, updates) {
+    const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    const taskIndex = tasks.findIndex(task => task.name === taskName);
+    if (taskIndex > -1) {
+        tasks[taskIndex] = { ...tasks[taskIndex], ...updates };
+    }
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
+function loadTasks() {
+    const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    tasks.forEach(task => createTaskCard(task.name, task));
 }
 
 function saveTasks() {
